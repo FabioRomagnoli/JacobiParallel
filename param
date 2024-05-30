@@ -1,0 +1,5 @@
+# File containing necessary parameters to describe an initial value probelem
+n_p=1
+maxIter=1000
+n=11
+e=1e-10
