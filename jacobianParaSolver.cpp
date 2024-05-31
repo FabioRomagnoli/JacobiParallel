@@ -5,23 +5,7 @@
 #include <omp.h>
 #pragma GCC diagnostic pop
 
-#include "jacobiTraits.hpp"
-#include "jacobiOptions.hpp"
-#include <unistd.h>  
-#include "partitioner.hpp"
-
-void print_vector(const std::vector<int>& vec) {
-    std::cout << std::endl;
-    std::cout << "[";
-    for (size_t i = 0; i < vec.size(); ++i) {
-        std::cout << vec[i];
-        if (i < vec.size() - 1) {
-            std::cout << ", ";
-        }
-    }
-    std::cout << "]";
-    std::cout << std::endl;
-}
+#include <jacobi.hpp>
 
 static double c_start, c_diff;
 #define tic() c_start = MPI_Wtime();
@@ -30,78 +14,85 @@ static double c_start, c_diff;
     std::cout << x << c_diff << " [s]" << std::endl; \
 }
 
-Matrix paraSolver(std::tuple<int,double,unsigned int,double> &pack, Matrix fEval, MPI_Comm &mpi_comm){
-
-    int mpi_rank;
+Matrix paraSolver(int argc, char **argv){
+    MPI_Init(&argc, &argv);
+    MPI_Comm mpi_comm = MPI_COMM_WORLD;
+    int mpi_size, mpi_rank;
+    MPI_Comm_size(mpi_comm, &mpi_size);
     MPI_Comm_rank(mpi_comm, &mpi_rank);
 
-    int mpi_size;
-    MPI_Comm_size(mpi_comm, &mpi_size);
 
+	paramPack p;
+	Matrix fEval;
+	Matrix solEval;
+	Matrix U;
+
+	if(mpi_rank == 0){
+	    configParams(argc, argv, p, fEval, solEval, U, 1);
+	}
+
+    MPI_Bcast(&p, sizeof(p), MPI_BYTE, 0, mpi_comm);
+
+    auto [n,h,maxIter,e,omega] = p;
+
+    MPI_Barrier(mpi_comm);
     if(mpi_rank == 0)
         std::cout << "Number of processes: " << mpi_size << std::endl;
 
+
     // Set to true to print matrix, vector and result.
     const bool print = false;
-
-    auto [n,h,maxIter,e] = pack;
 
     int n_rows = n;
     int n_cols = n;  
     int num_threads;
     // add openMP number of threads accordingly once implementation of openMP will be done 
-
-    // MPI_Bcast(&num_threads, 1, MPI_INT, 0, mpi_comm);
-
-    const unsigned int count = n_rows / mpi_size;
-    const int          remainder = n_rows % mpi_size;
-
-    const unsigned int n_rows_local =
-        (mpi_rank > remainder) ? (count + 1) : count;
-
-    std::cout << "Number of rows on rank " << mpi_rank << ": " << n_rows_local
-                << std::endl;
-
-    Matrix U = Matrix::Zero(n_rows, n_cols);
-    Matrix Up1 = Matrix::Zero(n_rows, n_cols);
-
-    //adds 2 to simplify computation and exchange of adjecent rows
-    Matrix U_local = Matrix::Zero(n_rows_local + 2, n_cols);
-    Matrix Up1_local = Matrix::Zero(n_rows_local, n_cols);
-    Matrix fEval_local(n_rows_local, n_cols);
+    
 
     // Vectors to store the number of elements to send/recieve to/from each
     // processor and the offset index where to start reading/writing them from.
     std::vector<int> counts(mpi_size);
     std::vector<int> displacements(mpi_size);
 
+    // Partitioner from PACS examples to get vectors to give to scatter and gather
     apsc::MatrixPartitioner mpartitioner(n_rows,n_cols,mpi_size);
     auto count_disp = apsc::counts_and_displacements(mpartitioner);
 
     counts = count_disp[0];
     displacements = count_disp[1];
 
-    MPI_Bcast(counts.data(), mpi_size, MPI_INT, 0, mpi_comm);
-    MPI_Bcast(displacements.data(), mpi_size, MPI_INT, 0, mpi_comm);
+    const unsigned int n_rows_local = mpartitioner.last_row(mpi_rank) - mpartitioner.first_row(mpi_rank);
 
     MPI_Barrier(mpi_comm);
+    std::cout << "Number of rows on rank " << mpi_rank << ": " << n_rows_local << std::endl;
+
+
+
+    //adds 2 to simplify computation and exchange of adjecent rows
+    Matrix U_local = Matrix::Zero(n_rows_local + 2, n_cols);
+    Matrix Up1_local = Matrix::Zero(n_rows_local, n_cols);
+    Matrix fEval_local(n_rows_local, n_cols);
+    Matrix Up1 = Matrix::Zero(n_rows, n_cols);
+
   
     tic();
 
+    if(mpi_rank != 0){
+        fEval = Matrix::Zero(n,n); 
+	    U = Matrix::Zero(n,n); 
+    }
+
+    MPI_Barrier(mpi_comm);
     MPI_Scatterv(U.data(), counts.data(), displacements.data(),
                 MPI_DOUBLE, U_local.data() + n_cols, (n_rows_local * n_cols) , MPI_DOUBLE,
                 0, mpi_comm);
 
     MPI_Barrier(mpi_comm);
-
     MPI_Scatterv(fEval.data(), counts.data(), displacements.data(),
                 MPI_DOUBLE, fEval_local.data(), (n_rows_local * n_cols), MPI_DOUBLE,
                 0, mpi_comm);
 
-    MPI_Barrier(mpi_comm);
-
     if(print){
-
         for(int rank = 0; rank < mpi_size; ++rank){
             if(rank == mpi_rank && mpi_rank == 0){
                 std::cout << std::endl;
@@ -119,6 +110,7 @@ Matrix paraSolver(std::tuple<int,double,unsigned int,double> &pack, Matrix fEval
 
     int conv;
     unsigned int iter = 0; 
+
     do{
 
         for(int i = 0; i < n_rows_local; ++i){
@@ -217,13 +209,20 @@ Matrix paraSolver(std::tuple<int,double,unsigned int,double> &pack, Matrix fEval
         MPI_Barrier(mpi_comm);
 
         ++iter;
-
-
     }while(iter < maxIter and conv != 1);
 
 
     MPI_Gatherv(Up1_local.data(), Up1_local.size(), MPI_DOUBLE, Up1.data(), 
                 counts.data(), displacements.data(), MPI_DOUBLE, 0, mpi_comm);
 
+
+    MPI_Finalize();
+
+    if(mpi_rank == 0){
+        std::cout << solEval << std::endl
+        << std::endl
+                  << Up1     << std::endl; 
+
+    }
     return Up1;
 }

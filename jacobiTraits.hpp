@@ -17,6 +17,8 @@ using Scalar = double;
 using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 using F = std::function<Scalar(Scalar, Scalar)>;
 
+typedef std::tuple<int, double, unsigned int, double,std::pair<double,double>> paramPack;
+
 
 class Domain{
 public:
@@ -38,12 +40,6 @@ protected:
 class Boundary : public Domain{
 public:
     Boundary(double x0_, double xn_, double y0_, double yn_)
-        : Domain(x0_, xn_,y0_,yn_) {};
-};
-
-class Omega : public Domain{
-public:
-    Omega(double x0_, double xn_, double y0_, double yn_)
         : Domain(x0_, xn_,y0_,yn_) {};
 };
 

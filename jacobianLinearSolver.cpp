@@ -1,30 +1,29 @@
-#include "jacobiOptions.hpp"
 #include "jacobiTraits.hpp"
+#include "jacobi.hpp"
 
-#include <iostream>
+Matrix linearSolver(int argc, char **argv){
 
-Matrix nextJacobian(const Param &p, Matrix &U){
-	Matrix Up1 = Matrix::Zero(p.n,p.n);
-
-	for(int i = 1; i < p.n - 1; ++i){
-		for(int j = 1; j < p.n - 1; ++j){
-			Up1(i,j) = (1.0/4.0)*(U(i-1,j) + U(i+1,j) + U(i,j-1) + 
-							U(i,j+1) + (std::pow(p.h,2))*p.fEval(i,j));
-		}
-	}
-
-	return Up1;
-}
-
-Matrix linearSolver(const Param &p){
+	paramPack p;
+	Matrix fEval;
+	Matrix solEval;
 	Matrix U;
-	Matrix Up1 = Matrix::Zero(p.n,p.n);
+
+	configParams(argc, argv, p, fEval, solEval, U, 0);
+    auto [n,h,maxIter,e,omega] = p;
+
+	Matrix Up1 = Matrix::Zero(n,n);
 	unsigned int iter = 0;
+
 	do{		
 		U = Up1;
-		Up1 = nextJacobian(p, U);
+		for(int i = 1; i < n - 1; ++i){
+			for(int j = 1; j < n - 1; ++j){
+				Up1(i,j) = (1.0/4.0)*(U(i-1,j) + U(i+1,j) + U(i,j-1) + 
+								U(i,j+1) + (std::pow(h,2))*fEval(i,j));
+			}
+		}
 		++iter;
-	} while (p.e < ((Up1 - U)*p.h).norm() and iter < p.maxIter);
+	} while (e < ((Up1 - U)*h).norm() and iter < maxIter);
 
     return Up1;
 }

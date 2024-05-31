@@ -1,7 +1,8 @@
-# File containing necessary parameters to describe an initial value probelem
+# File containing necessary parameters to describe jacobi iterator method for laplace
 #domain
 #boundary
 function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
+solution=sin(2*_pi*x)*sin(2*_pi*y)
 n=10
 maxIter=100
 e=1e-7
