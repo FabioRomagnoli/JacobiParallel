@@ -19,14 +19,12 @@ Matrix nextJacobian(const Param &p, Matrix &U){
 Matrix linearSolver(const Param &p){
 	Matrix U;
 	Matrix Up1 = Matrix::Zero(p.n,p.n);
-	idx iter = 0;
+	unsigned int iter = 0;
 	do{		
 		U = Up1;
 		Up1 = nextJacobian(p, U);
 		++iter;
 	} while (p.e < ((Up1 - U)*p.h).norm() and iter < p.maxIter);
-
-	// std::cout << U - p.solEval << std::endl << std::endl;
 
     return Up1;
 }

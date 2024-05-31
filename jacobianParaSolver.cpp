@@ -8,7 +8,7 @@
 #include "jacobiTraits.hpp"
 #include "jacobiOptions.hpp"
 #include <unistd.h>  
-#include "/home/fabio/Documents/PACS/pacs-examples/Examples/src/Parallel/Utilities/partitioner.hpp"
+#include "partitioner.hpp"
 
 void print_vector(const std::vector<int>& vec) {
     std::cout << std::endl;
@@ -57,7 +57,7 @@ Matrix paraSolver(std::tuple<int,double,unsigned int,double> &pack, Matrix fEval
     const int          remainder = n_rows % mpi_size;
 
     const unsigned int n_rows_local =
-        (mpi_rank < remainder) ? (count + 1) : count;
+        (mpi_rank > remainder) ? (count + 1) : count;
 
     std::cout << "Number of rows on rank " << mpi_rank << ": " << n_rows_local
                 << std::endl;
@@ -84,17 +84,15 @@ Matrix paraSolver(std::tuple<int,double,unsigned int,double> &pack, Matrix fEval
     MPI_Bcast(counts.data(), mpi_size, MPI_INT, 0, mpi_comm);
     MPI_Bcast(displacements.data(), mpi_size, MPI_INT, 0, mpi_comm);
 
-
     MPI_Barrier(mpi_comm);
-
-    MPI_Barrier(mpi_comm);
- 
-
+  
     tic();
 
     MPI_Scatterv(U.data(), counts.data(), displacements.data(),
                 MPI_DOUBLE, U_local.data() + n_cols, (n_rows_local * n_cols) , MPI_DOUBLE,
                 0, mpi_comm);
+
+    MPI_Barrier(mpi_comm);
 
     MPI_Scatterv(fEval.data(), counts.data(), displacements.data(),
                 MPI_DOUBLE, fEval_local.data(), (n_rows_local * n_cols), MPI_DOUBLE,
@@ -103,6 +101,7 @@ Matrix paraSolver(std::tuple<int,double,unsigned int,double> &pack, Matrix fEval
     MPI_Barrier(mpi_comm);
 
     if(print){
+
         for(int rank = 0; rank < mpi_size; ++rank){
             if(rank == mpi_rank && mpi_rank == 0){
                 std::cout << std::endl;

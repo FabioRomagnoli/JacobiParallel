@@ -14,7 +14,6 @@
 #include <tuple>
 
 using Scalar = double;
-using idx = size_t;
 using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 using F = std::function<Scalar(Scalar, Scalar)>;
 
