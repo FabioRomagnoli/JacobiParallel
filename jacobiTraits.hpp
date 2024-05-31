@@ -1,9 +1,17 @@
 #ifndef JACOBI_TRAITS_HPP_
 #define JACOBI_TRAITS_HPP_
 #include "Eigen/Core"
+#include <Eigen/Dense>
+#include "mpi.h"
 
+#include <vector>
 #include <functional>
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <random>
 #include <math.h>
+#include <tuple>
 
 using Scalar = double;
 using idx = size_t;
@@ -16,10 +24,10 @@ public:
     Domain(double x0_, double xn_, double y0_, double yn_)
         : x0(x0_),xn(xn_), y0(y0_), yn(yn_) {};
     
-    const double getX0() const {return x0;}
-    const double getXN() const {return xn;}
-    const double getY0() const {return y0;}
-    const double getYN() const {return yn;}
+    const double X0() const {return x0;}
+    const double XN() const {return xn;}
+    const double Y0() const {return y0;}
+    const double YN() const {return yn;}
 
 protected:
     const double x0; 

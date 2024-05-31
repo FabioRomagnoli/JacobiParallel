@@ -1,18 +1,19 @@
-CXX      ?= g++
 CXXFLAGS ?= -std=c++20
-CPPFLAGS ?= -Wno-deprecated-enum-enum-conversion
-INCLUDES ?= -I$(mkEigenInc)  #-I$(include folders) or mk modules
+CPPFLAGS ?= -Wno-deprecated-enum-enum-conversion -w
+INCLUDES ?= -I$(mkEigenInc) -I$(MP_INCLD_DIR)
 
-# MAKEFILEH_DIR=.
-# include $(MAKEFILEH_DIR)/Makefile.inc
-# -include Makefile.inc
+MAKEFILEH_DIR=.
+include $(MAKEFILEH_DIR)/Makefile.inc
+-include Makefile.inc
 
-# MP_PRFX=$(PACS_ROOT)
-# MP_LIB_DIR=$(MP_PRFX)/lib
-# MP_INCLD_DIR=$(MP_PRFX)/include
+MP_PRFX=$(PACS_ROOT)
+MP_LIB_DIR=$(MP_PRFX)/lib
+MP_INCLD_DIR=$(MP_PRFX)/include/muparser
 
 #REQUIRMENTS
-# MP_REQ_LIBS = #-L$(MP_LIB_DIR) -l any lib that is needed 
+MP_REQ_LIBS = -L$(MP_LIB_DIR) -Wl,-rpath,$(MP_LIB_DIR) -lmuparser
+
+CXX = mpic++ -fopenmp -w
 
 .PHONY : all $(EXEC) $(OBJS) clean distclean 
 
@@ -29,7 +30,7 @@ EXEC=$(exe_sources:.cpp=)
 all: $(EXEC) 
 
 $(EXEC): $(OBJS)
-	$(CXX)  $(CXXFLAGS)  $(CPPFLAGS) $(inputs) -o $@ $^ $(MP_REQ_LIBS)
+	$(CXX)  $(CXXFLAGS)  $(CPPFLAGS) $(INCLUDES) -o $@ $^ $(MP_REQ_LIBS)
 
 %.o: %.cpp $(HEADERS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@

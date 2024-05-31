@@ -1,5 +1,7 @@
 # File containing necessary parameters to describe an initial value probelem
-n_p=1
-maxIter=1000
-n=11
-e=1e-10
+#domain
+#boundary
+function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
+n=4
+maxIter=10
+e=1e-7
