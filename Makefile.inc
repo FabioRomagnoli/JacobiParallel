@@ -124,7 +124,7 @@ endif
 ifeq ($(DEBUG),yes)
   OPTFLAGS=-g
 # If debugging we use the local dynamic libraries and avoid ldconfig -d
-# or setting LD_LIBRARY_PATH
+# or setting LD_LIBRARY_PATH 
   LDFLAGS=-Wl,-rpath=. -Wl,-rpath=$(PACS_ROOT)/lib LDFLAGS -Wl,-rpath=/home/fabio/Documents/PACS/pacs-examples/Examples/lib# 
 else
   # Since aa 18-19 I have decided to indicate the libraries even if DEBUG=no.

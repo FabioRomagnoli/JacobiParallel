@@ -2,6 +2,6 @@
 #domain
 #boundary
 function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
-n=4
-maxIter=10
+n=10
+maxIter=100
 e=1e-7
