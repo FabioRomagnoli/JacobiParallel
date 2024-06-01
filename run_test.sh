@@ -2,7 +2,7 @@
 
 
 filename="paramTest"
-output="test"
+output="test2"
 cores=(1 2 4)
 grid_points=(4 8 16 32 64 128 256)
 threads=(1 2)

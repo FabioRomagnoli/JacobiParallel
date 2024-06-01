@@ -98,7 +98,7 @@ Solution paraSolver(MPI_Comm &mpi_comm, outputPack &o, paramPack &p, gridPack &g
             MPI_Send(U_local.row(1).data(), n_cols, MPI_DOUBLE, mpi_rank-1, 0, mpi_comm);
         }
 
-        //each bloc apart from last sends the last row to the block after
+        //each block apart from last sends the last row to the block after
         if(mpi_rank < mpi_size - 1){
             MPI_Send(U_local.row(n_rows_local).data(), n_cols, MPI_DOUBLE, mpi_rank+1, 1, mpi_comm);
         }
@@ -127,10 +127,14 @@ Solution paraSolver(MPI_Comm &mpi_comm, outputPack &o, paramPack &p, gridPack &g
 
         //reinstate boundary conditions for the edge blocks 
         if(mpi_rank == 0){
-            Up1_local.row(0) = Matrix::Zero(1,n_cols);
+            for(int j = 0; j < n_cols ; ++j){
+                Up1_local(0,j) = f(0,j);
+            }
         }
         if(mpi_rank == mpi_size - 1){
-            Up1_local.row(n_rows_local - 1) = Matrix::Zero(1,n_cols);
+            for(int j = 0; j < n_cols ; ++j){
+                Up1_local(n_rows_local - 1,j) = f(n_rows_local - 1 ,j);
+            }
         }
 
 

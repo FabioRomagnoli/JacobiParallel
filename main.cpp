@@ -33,7 +33,6 @@ int main(int argc, char **argv){
 
         outputFile = cl.follow("output","-o");
 
-
         configOutput(cl, df, o);
 	    configParams(cl, df, p, o);
         configGrid(cl, df, g, o);
