@@ -7,15 +7,17 @@
 
 #include <jacobi.hpp>
 
-Solution paraSolver(MPI_Comm &mpi_comm, paramPack &p, gridPack &g, Matrix &f, Matrix &U){
+Solution paraSolver(MPI_Comm &mpi_comm, outputPack &o, paramPack &p, gridPack &g, Matrix &f, Matrix &U){
 
     int mpi_size, mpi_rank;
     MPI_Comm_size(mpi_comm, &mpi_size);
     MPI_Comm_rank(mpi_comm, &mpi_rank);
 
+    MPI_Bcast(&o, sizeof(o), MPI_BYTE, 0, mpi_comm);
     MPI_Bcast(&p, sizeof(p), MPI_BYTE, 0, mpi_comm);
     MPI_Bcast(&g, sizeof(g), MPI_BYTE, 0, mpi_comm);
 
+	auto [prnt_param,prnt_grid,prnt_matrix,prnt_info,prnt_result,vtk_out,csv_out] = o;
     auto [threads, maxIter,e] = p;
     auto [n,h,omega] = g;
 
@@ -23,7 +25,7 @@ Solution paraSolver(MPI_Comm &mpi_comm, paramPack &p, gridPack &g, Matrix &f, Ma
 
 
     MPI_Barrier(mpi_comm);
-    if(mpi_rank == 0 and print)
+    if(mpi_rank == 0 and prnt_info)
         std::cout << "Number of processes: " << mpi_size << std::endl;
 
     // Set to true to print matrix, vector and result.
@@ -32,7 +34,6 @@ Solution paraSolver(MPI_Comm &mpi_comm, paramPack &p, gridPack &g, Matrix &f, Ma
     int n_cols = n;  
     int num_threads = threads; 
 
-    MPI_Bcast(&g, sizeof(g), MPI_BYTE, 0, mpi_comm);
 
     // Vectors to store the number of elements to send/recieve to/from each
     // processor and the offset index where to start reading/writing them from.
@@ -50,7 +51,7 @@ Solution paraSolver(MPI_Comm &mpi_comm, paramPack &p, gridPack &g, Matrix &f, Ma
 
     MPI_Barrier(mpi_comm);
     
-    if(print)
+    if(prnt_info)
         std::cout << "Number of rows on rank " << mpi_rank << ": " << n_rows_local << std::endl;
 
     //adds 2 rows to simplify computation and exchange of adjecent rows

@@ -1,0 +1,1 @@
+mpiexec -np 4 ./main -f param -n 10 -t 2 -o test2

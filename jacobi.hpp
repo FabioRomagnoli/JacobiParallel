@@ -16,21 +16,26 @@ static double c_start, c_diff;
 #define toc() (c_diff = MPI_Wtime() - c_start, c_diff)
 
 
-void configParams(GetPot &datafile, paramPack &p, int printParam);
+// Functions to configure the iterator
+void configOutput(GetPot &cl, GetPot &df, outputPack &o);
 
-void configGrid(GetPot &datafile, gridPack &g);
+void configParams(GetPot &cl, GetPot &df, paramPack &p, outputPack &o);
 
-void configMatrices(GetPot &datafile, gridPack &g, Matrix &f, Matrix &sol, Matrix &U);
+void configGrid(GetPot &cl, GetPot &df, gridPack &g, outputPack &o);
+
+void configMatrices(GetPot &cl, GetPot &df, gridPack &g, outputPack &o, Matrix &f, Matrix &sol, Matrix &U);
+
+
+// Functions to solve jacobi iteration linearly or parallelized 
+Solution linearSolver(outputPack &o, paramPack &p, gridPack &g, Matrix &f, Matrix &U);
+
+Solution paraSolver(MPI_Comm &mpi_comm, outputPack &o,  paramPack &p, gridPack &g, Matrix &f, Matrix &U);
+
+
+// Utility functions to print vectors and output data to file
+void output_dat(const std::string& filename, DataPoint dp);
 
 void print_vector(const std::vector<int>& vec);
-
-double errL2(double h, Matrix &Uf, Matrix &sol);
-
-Solution linearSolver(paramPack &p, gridPack &g, Matrix &f, Matrix &U);
-
-Solution paraSolver(MPI_Comm &mpi_comm, paramPack &p, gridPack &g, Matrix &f, Matrix &U);
-
-void output_dat(const std::string& filename, DataPoint dp);
 
 
 #endif /* JACOBI_H */ 

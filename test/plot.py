@@ -1,10 +1,15 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import argparse
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Plot performance data.')
+parser.add_argument('filename', type=str, help='The CSV file containing the performance data')
+args = parser.parse_args()
 
 # Load data
 try:
-    data = pd.read_csv('./test/data/output.csv')
-    print("Columns in DataFrame:", data.columns)
+    data = pd.read_csv("./test/data/" + args.filename + '.csv')
 except Exception as e:
     print(f"Error reading the file: {e}")
     exit(1)
@@ -40,5 +45,6 @@ ax.set_title('Performance Analysis')
 ax.legend()
 ax.grid(True)
 
-plt.savefig('performance_plot.png')
-plt.show()
+plt.savefig('test/plots/performance_' + args.filename + '.png')
+print(f"Plot saved: /test/plots/performance_" + args.filename + ".png")
+

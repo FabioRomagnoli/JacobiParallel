@@ -1,4 +1,6 @@
-MAKEFILEH_DIR=../
+PACS_ROOT?=/home/fabio/Documents/PACS/pacs-examples/Examples
+
+MAKEFILEH_DIR=$(PACS_ROOT)
 include $(MAKEFILEH_DIR)/Makefile.inc
 -include Makefile.inc
 

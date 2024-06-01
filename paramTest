@@ -1,0 +1,15 @@
+# File containing necessary parameters suitable for lots of test
+omega='0.0 1.0'
+boundary=0
+function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
+solution=sin(2*_pi*x)*sin(2*_pi*y)
+
+maxIter=100000
+e=1e-6
+
+prnt_param=false
+prnt_grid=false 
+prnt_info=false
+prnt_result=false
+vtk_out=false
+csv_out=true

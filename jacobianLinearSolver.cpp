@@ -1,9 +1,12 @@
 #include "jacobi.hpp"
 
-Solution linearSolver(paramPack &p, gridPack &g, Matrix &f, Matrix &U){
-
+Solution linearSolver(outputPack &o, paramPack &p, gridPack &g, Matrix &f, Matrix &U){
+	auto [prnt_param,prnt_grid,prnt_matrix,prnt_info,prnt_result,vtk_out,csv_out] = o;
     auto [threads, maxIter,e] = p;
     auto [n,h,omega] = g;
+
+    if(prnt_info)
+        std::cout << "Problem solved linearly " << std::endl;
 
 	Matrix Up1 = Matrix::Zero(n,n);
 	unsigned int iter = 0;

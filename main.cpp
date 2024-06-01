@@ -16,53 +16,63 @@ int main(int argc, char **argv){
 
 	paramPack p;
     gridPack g;
+    outputPack o; 
 
 	Matrix f;
 	Matrix exct;
 	Matrix U;
     Solution sol;
 
-    bool vtk_out;
-    bool csv_out; 
+    std::string outputFile; 
 
 	if(mpi_rank == 0){
         //GetPot initialization, input takes from file param in folder
-        GetPot command_line(argc, argv);
-        const std::string filename = command_line.follow("param","-f");
-        GetPot datafile(filename.c_str());
+        GetPot cl(argc, argv);      //command line
+        const std::string filename = cl.follow("param","-f");
+        GetPot df(filename.c_str());   //datafile
 
-	    vtk_out = datafile("vtk_out", false);
-	    csv_out = datafile("csv_out", false);
+        outputFile = cl.follow("output","-o");
 
-	    configParams(command_line, p, 0);
-        configGrid(command_line, g);
-        configMatrices(command_line,g,f,exct,U);
 
+        configOutput(cl, df, o);
+	    configParams(cl, df, p, o);
+        configGrid(cl, df, g, o);
+        configMatrices(cl, df, g, o, f, exct, U);
 	}
 
 	if(mpi_size == 1){
-        sol = linearSolver(p, g, f, U);
+        sol = linearSolver(o, p, g, f, U);
 	} else {
-        sol = paraSolver(mpi_comm, p, g, f, U);
+        sol = paraSolver(mpi_comm, o,  p, g, f, U);
 	}
 
+
     if(mpi_rank == 0){
+	    auto [prnt_param,prnt_grid,prnt_matrix,prnt_info,prnt_result,vtk_out,csv_out] = o;
         auto [threads, maxIter,e] = p;
         auto [n,h,omega] = g;
 
-        double err = errL2(h,sol.Uf,exct);
-        // std::cout << "Error " << err << std::endl; 
+        double err = std::sqrt(h * ((sol.Uf - exct).array().square()).sum());
+
+        if(prnt_matrix){
+            std::cout << "Solution of Jacobi Iteration" << std::endl
+					 << sol.Uf << std::endl << std::endl;
+        }
+
+        if(prnt_result){
+            std::cout << "The error of in the L2 norm is " << err << std::endl;
+        }
 
         if(vtk_out){
             generateVTKFile("mesh/out.vtk", sol.Uf, n,n, h, h);
         }
 
         if(csv_out){
-            output_dat("test/data/output", {mpi_size, threads, n, sol.time, err});
+            output_dat("test/data/" + outputFile, {mpi_size, threads, n, sol.time, err});
+            std::cout << "Output appended to " << outputFile + ".csv" << "\n";
         }
     }
 
     MPI_Finalize();
-
 
 };
