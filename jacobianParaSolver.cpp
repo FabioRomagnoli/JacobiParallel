@@ -7,47 +7,32 @@
 
 #include <jacobi.hpp>
 
-static double c_start, c_diff;
-#define tic() c_start = MPI_Wtime();
-#define toc(x){                                      \
-    c_diff = MPI_Wtime() - c_start;                  \
-    std::cout << x << c_diff << " [s]" << std::endl; \
-}
+Solution paraSolver(MPI_Comm &mpi_comm, paramPack &p, gridPack &g, Matrix &f, Matrix &U){
 
-Matrix paraSolver(int argc, char **argv){
-    MPI_Init(&argc, &argv);
-    MPI_Comm mpi_comm = MPI_COMM_WORLD;
     int mpi_size, mpi_rank;
     MPI_Comm_size(mpi_comm, &mpi_size);
     MPI_Comm_rank(mpi_comm, &mpi_rank);
 
-
-	paramPack p;
-	Matrix fEval;
-	Matrix solEval;
-	Matrix U;
-
-	if(mpi_rank == 0){
-	    configParams(argc, argv, p, fEval, solEval, U, 1);
-	}
-
     MPI_Bcast(&p, sizeof(p), MPI_BYTE, 0, mpi_comm);
+    MPI_Bcast(&g, sizeof(g), MPI_BYTE, 0, mpi_comm);
 
-    auto [n,h,maxIter,e,omega] = p;
+    auto [threads, maxIter,e] = p;
+    auto [n,h,omega] = g;
+
+    const bool print = false;
+
 
     MPI_Barrier(mpi_comm);
-    if(mpi_rank == 0)
+    if(mpi_rank == 0 and print)
         std::cout << "Number of processes: " << mpi_size << std::endl;
 
-
     // Set to true to print matrix, vector and result.
-    const bool print = false;
 
     int n_rows = n;
     int n_cols = n;  
-    int num_threads;
-    // add openMP number of threads accordingly once implementation of openMP will be done 
-    
+    int num_threads = threads; 
+
+    MPI_Bcast(&g, sizeof(g), MPI_BYTE, 0, mpi_comm);
 
     // Vectors to store the number of elements to send/recieve to/from each
     // processor and the offset index where to start reading/writing them from.
@@ -64,21 +49,18 @@ Matrix paraSolver(int argc, char **argv){
     const unsigned int n_rows_local = mpartitioner.last_row(mpi_rank) - mpartitioner.first_row(mpi_rank);
 
     MPI_Barrier(mpi_comm);
-    std::cout << "Number of rows on rank " << mpi_rank << ": " << n_rows_local << std::endl;
+    
+    if(print)
+        std::cout << "Number of rows on rank " << mpi_rank << ": " << n_rows_local << std::endl;
 
-
-
-    //adds 2 to simplify computation and exchange of adjecent rows
+    //adds 2 rows to simplify computation and exchange of adjecent rows
     Matrix U_local = Matrix::Zero(n_rows_local + 2, n_cols);
     Matrix Up1_local = Matrix::Zero(n_rows_local, n_cols);
-    Matrix fEval_local(n_rows_local, n_cols);
+    Matrix f_local(n_rows_local, n_cols);
     Matrix Up1 = Matrix::Zero(n_rows, n_cols);
 
-  
-    tic();
-
     if(mpi_rank != 0){
-        fEval = Matrix::Zero(n,n); 
+        f = Matrix::Zero(n,n); 
 	    U = Matrix::Zero(n,n); 
     }
 
@@ -88,31 +70,18 @@ Matrix paraSolver(int argc, char **argv){
                 0, mpi_comm);
 
     MPI_Barrier(mpi_comm);
-    MPI_Scatterv(fEval.data(), counts.data(), displacements.data(),
-                MPI_DOUBLE, fEval_local.data(), (n_rows_local * n_cols), MPI_DOUBLE,
+    MPI_Scatterv(f.data(), counts.data(), displacements.data(),
+                MPI_DOUBLE, f_local.data(), (n_rows_local * n_cols), MPI_DOUBLE,
                 0, mpi_comm);
-
-    if(print){
-        for(int rank = 0; rank < mpi_size; ++rank){
-            if(rank == mpi_rank && mpi_rank == 0){
-                std::cout << std::endl;
-            }
-            MPI_Barrier(mpi_comm);
-
-            if(rank == mpi_rank){
-                toc("Scatter: time elapsed on rank " + std::to_string(mpi_rank) +
-                    ": ");
-            }
-            MPI_Barrier(mpi_comm);
-        }
-        MPI_Barrier(mpi_comm);
-    }
 
     int conv;
     unsigned int iter = 0; 
 
+    tic();
+
     do{
 
+#pragma omp parallel for shared(U_local, Up1_local) num_threads(num_threads)
         for(int i = 0; i < n_rows_local; ++i){
             for(int j = 0; j < n_cols; ++j){
                 U_local(i + 1,j) = Up1_local(i,j);
@@ -123,12 +92,10 @@ Matrix paraSolver(int argc, char **argv){
         Operations to send and recieve the rows necessary between adjecent proccessors to 
         compute next jacobi iteration
         */
-        tic();
         //each block apart from 0 sends the first row  to the block before
         if(mpi_rank > 0){
             MPI_Send(U_local.row(1).data(), n_cols, MPI_DOUBLE, mpi_rank-1, 0, mpi_comm);
         }
-        MPI_Barrier(mpi_comm);
 
         //each bloc apart from last sends the last row to the block after
         if(mpi_rank < mpi_size - 1){
@@ -140,7 +107,6 @@ Matrix paraSolver(int argc, char **argv){
         if(mpi_rank < mpi_size - 1){
             MPI_Recv(U_local.row(n_rows_local + 1).data(), n_cols, MPI_DOUBLE, mpi_rank+1, 0, mpi_comm, MPI_STATUS_IGNORE);
         }
-        MPI_Barrier(mpi_comm);
 
         //each block apart from 0 recieves the row from the block before
         if(mpi_rank > 0){
@@ -149,30 +115,14 @@ Matrix paraSolver(int argc, char **argv){
 
         MPI_Barrier(mpi_comm);
 
-        if(print){
-                for(int rank = 0; rank < mpi_size; ++rank){
-                    if(rank == mpi_rank && mpi_rank == 0){
-                        std::cout << std::endl;
-                    }
-                    MPI_Barrier(mpi_comm);
-
-                    if(rank == mpi_rank){
-                        toc("Send and recieve: time elapsed on rank " + std::to_string(mpi_rank) +
-                            ": ");
-                    }
-                    MPI_Barrier(mpi_comm);
-                }
-        }
-
         //compute next iteration of jacobi
+#pragma omp parallel for shared(f_local, U_local, Up1_local) num_threads(num_threads)
         for(int i = 0; i < n_rows_local; ++i){
             for(int j = 1; j < n_cols - 1; ++j){
                 Up1_local(i,j) = (1.0/4.0)*(U_local(i,j) + U_local(i+2,j) + 
-                            U_local(i+1,j-1) + U_local(i+1,j+1) + (std::pow(h,2))*fEval_local(i,j));
+                            U_local(i+1,j-1) + U_local(i+1,j+1) + (std::pow(h,2))*f_local(i,j));
             }
         }
-        MPI_Barrier(mpi_comm);
-
 
         //reinstate boundary conditions for the edge blocks 
         if(mpi_rank == 0){
@@ -181,7 +131,6 @@ Matrix paraSolver(int argc, char **argv){
         if(mpi_rank == mpi_size - 1){
             Up1_local.row(n_rows_local - 1) = Matrix::Zero(1,n_cols);
         }
-        MPI_Barrier(mpi_comm);
 
 
         // Calculate the difference and apply scaling factor h
@@ -211,18 +160,10 @@ Matrix paraSolver(int argc, char **argv){
         ++iter;
     }while(iter < maxIter and conv != 1);
 
+    double time_elapsed = toc();
 
     MPI_Gatherv(Up1_local.data(), Up1_local.size(), MPI_DOUBLE, Up1.data(), 
                 counts.data(), displacements.data(), MPI_DOUBLE, 0, mpi_comm);
-
-
-    MPI_Finalize();
-
-    if(mpi_rank == 0){
-        std::cout << solEval << std::endl
-        << std::endl
-                  << Up1     << std::endl; 
-
-    }
-    return Up1;
+    
+    return {Up1, time_elapsed};
 }

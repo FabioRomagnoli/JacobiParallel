@@ -3,6 +3,7 @@
 #boundary
 function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
 solution=sin(2*_pi*x)*sin(2*_pi*y)
-n=10
-maxIter=100
-e=1e-7
+maxIter=100000
+e=1e-6
+vtk_out=false
+csv_out=true
