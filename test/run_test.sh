@@ -3,9 +3,9 @@
 
 paramFile="paramTest"
 outputFile="test3"
-cores=(1 2)
-grid_points=(4 8 16)
-threads=(1 2 4)
+cores=(1 2 4)
+grid_points=(4 8 16 32 64 128 256)
+threads=(1 2)
 
 for core in "${cores[@]}"; do
   for grid in "${grid_points[@]}"; do

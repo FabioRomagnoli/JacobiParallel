@@ -55,8 +55,8 @@ void JacobianSolver::init(int argc, char **argv){
                     U1(i,j) = Fb(omega.first + i * h, omega.second + j * h);
                 } else {
                     f(i,j) = Ff(omega.first + i * h, omega.second + j * h);
-                    Ue(i,j) = Fsol(omega.first + i * h, omega.second + j * h);
                 }
+                Ue(i,j) = Fsol(omega.first + i * h, omega.second + j * h);
             }
         }
 
@@ -81,6 +81,12 @@ void JacobianSolver::init(int argc, char **argv){
                         << Ue << std::endl << std::endl << std::endl; 
         }
     }
+
+    MPI_Bcast(&n, 1, MPI_INT, 0, mpi_comm);
+    MPI_Bcast(&h, 1, MPI_DOUBLE, 0, mpi_comm);
+    MPI_Bcast(&threads, 1, MPI_INT, 0, mpi_comm);
+    MPI_Bcast(&maxIter, 1, MPI_INT, 0, mpi_comm);
+    MPI_Bcast(&e, 1, MPI_DOUBLE, 0, mpi_comm);
 }  
 
 void JacobianSolver::solve(){
@@ -112,59 +118,72 @@ void JacobianSolver::solve(){
 
 }
 
-void JacobianSolver::cast(){
-    MPI_Bcast(&n, 1, MPI_INT, 0, mpi_comm);
-    MPI_Bcast(&h, 1, MPI_DOUBLE, 0, mpi_comm);
-    MPI_Bcast(&threads, 1, MPI_INT, 0, mpi_comm);
-    MPI_Bcast(&maxIter, 1, MPI_INT, 0, mpi_comm);
-    MPI_Bcast(&e, 1, MPI_DOUBLE, 0, mpi_comm);
-}
-
-void JacobianSolver::partition(){
-    // Partitioner from PACS examples to get vectors to give to scatter and gather
-    apsc::MatrixPartitioner mpartitioner(n,n,mpi_size);
-    auto a = apsc::counts_and_displacements(mpartitioner);
-
-    counts = a[0];
-    disp = a[1];
-
-    n_local = mpartitioner.last_row(mpi_rank) - mpartitioner.first_row(mpi_rank);
-}
-
 void JacobianSolver::scatter(Matrix &lf, Matrix &lU1){
+    auto [counts, disp] = apsc::counts_and_displacements(mPart);
+
     if(mpi_rank != 0){
         f = Matrix(n,n);
 	    U1 = Matrix(n,n);
         Ue = Matrix(n,n);
     }
 
-    MPI_Barrier(mpi_comm);
     MPI_Scatterv(U1.data(), counts.data(), disp.data(),
-                MPI_DOUBLE, lU1.data() + n, (n_local * n) , MPI_DOUBLE,
+                MPI_DOUBLE, lU1.data() + n, (lrows * n) , MPI_DOUBLE,
                 0, mpi_comm);
 
-    MPI_Barrier(mpi_comm);
     MPI_Scatterv(f.data(), counts.data(), disp.data(),
-                MPI_DOUBLE, lf.data(), (n_local * n), MPI_DOUBLE,
+                MPI_DOUBLE, lf.data(), (lrows * n), MPI_DOUBLE,
                 0, mpi_comm);
 
     MPI_Bcast(Ue.data(), Ue.size(), MPI_DOUBLE, 0, mpi_comm);
-
 }
 
-void JacobianSolver::boundary(Matrix &lUk){
-    //reinstate boundary conditions for the edge blocks 
-    if(mpi_rank == 0){
-        for(int j = 0; j < n ; ++j){
-            lUk(0,j) = f(0,j);
-        }
-    }
-    if(mpi_rank == mpi_size - 1){
-        for(int j = 0; j < n ; ++j){
-            lUk(n_local - 1,j) = f(n_local - 1 ,j);
-        }
+void JacobianSolver::castAdjacentRow(Matrix &lU){
+    /*
+    Operations to send and recieve the rows necessary between adjecent proccessors to 
+    compute next jacobi iteration
+    */
+    //each block apart from 0 sends the first row  to the block before
+    if(mpi_rank > 0){
+        MPI_Send(lU.row(1).data(), n, MPI_DOUBLE, mpi_rank-1, 0, mpi_comm);
     }
 
+    //each block apart from last sends the last row to the block after
+    if(mpi_rank < mpi_size - 1){
+        MPI_Send(lU.row(lrows).data(), n, MPI_DOUBLE, mpi_rank+1, 1, mpi_comm);
+    }
+    
+
+    //each block apart from last recieves the row from the block after
+    if(mpi_rank < mpi_size - 1){
+        MPI_Recv(lU.row(lrows + 1).data(), n, MPI_DOUBLE, mpi_rank+1, 0, mpi_comm, MPI_STATUS_IGNORE);
+    }
+
+    //each block apart from 0 recieves the row from the block before
+    if(mpi_rank > 0){
+        MPI_Recv(lU.row(0).data(), n, MPI_DOUBLE, mpi_rank-1, 1, mpi_comm, MPI_STATUS_IGNORE);
+    }
+
+    
+}
+
+void JacobianSolver::boundary(Matrix &lf, Matrix &lUn){
+    //reinstate boundary conditions for the edge blocks 
+
+#pragma omp parallel for shared(lUn, lf) num_threads(threads)
+    for(int i = 0; i < lrows; ++i){
+        lUn(i + 1, 0) = lf(i, 0);
+        lUn(i + 1, n - 1) = lf(i, n - 1);
+    }
+
+#pragma omp parallel for shared(lUn, lf) num_threads(threads)
+    for(int j = 0; j < n; ++j){
+        if(mpi_rank == 0)
+                lUn(1,j) = lf(0,j);
+
+        if(mpi_rank == mpi_size - 1)
+            lUn(lrows,j) = lf(lrows - 1 ,j);
+    }
 }
 
 Solution JacobianSolver::linearSolver(){
@@ -202,20 +221,24 @@ Solution JacobianSolver::parallelSolver(){
 	bool prnt_info = df("prnt_info", false);
     MPI_Bcast(&prnt_info, sizeof(bool), MPI_BYTE, 0, mpi_comm);
 
-    cast();
-    partition();
+    // Partitioner from PACS examples to get vectors to give to scatter and gather
+    mPart = apsc::MatrixPartitioner(n,n,mpi_size);
+    auto [counts, disp] = apsc::counts_and_displacements(mPart);
+    lrows = mPart.last_row(mpi_rank) - mPart.first_row(mpi_rank);
 
-    Matrix lf(n_local, n);                     
-    Matrix lU = Matrix::Zero(n_local + 2, n);  
+    Matrix lf(lrows, n);                     
+    Matrix lU = Matrix::Zero(lrows + 2, n);  
+
+    // Scatter to the local matrices
     scatter(lf, lU);
-
+    
     if(prnt_info){
         if(mpi_rank == 0)
             std::cout << "Number of processes: " << mpi_size << std::endl;
-        std::cout << "Number of rows on rank " << mpi_rank << ": " << n_local << std::endl;
+        std::cout << "Number of rows on rank " << mpi_rank << ": " << lrows << std::endl;
     }
 
-    Matrix lUk = Matrix::Zero(n_local, n);   
+    Matrix lUk = Matrix::Zero(lrows, n);   
 
     double conv;
     unsigned int iter = 0; 
@@ -223,64 +246,36 @@ Solution JacobianSolver::parallelSolver(){
     tic();
 
     do{
-        /*
-        Operations to send and recieve the rows necessary between adjecent proccessors to 
-        compute next jacobi iteration
-        */
-        //each block apart from 0 sends the first row  to the block before
-        if(mpi_rank > 0){
-            MPI_Send(lU.row(1).data(), n, MPI_DOUBLE, mpi_rank-1, 0, mpi_comm);
-        }
-
-        //each block apart from last sends the last row to the block after
-        if(mpi_rank < mpi_size - 1){
-            MPI_Send(lU.row(n_local).data(), n, MPI_DOUBLE, mpi_rank+1, 1, mpi_comm);
-        }
-        MPI_Barrier(mpi_comm);
-
-        //each block apart from last recieves the row from the block after
-        if(mpi_rank < mpi_size - 1){
-            MPI_Recv(lU.row(n_local + 1).data(), n, MPI_DOUBLE, mpi_rank+1, 0, mpi_comm, MPI_STATUS_IGNORE);
-        }
-
-        //each block apart from 0 recieves the row from the block before
-        if(mpi_rank > 0){
-            MPI_Recv(lU.row(0).data(), n, MPI_DOUBLE, mpi_rank-1, 1, mpi_comm, MPI_STATUS_IGNORE);
-        }
-
-        MPI_Barrier(mpi_comm);
+        castAdjacentRow(lU);
+        
+        //temp matrix for next solution
+        Matrix lUn = Matrix(lrows + 2, n);
         //compute next iteration of jacobi
-#pragma omp parallel for shared(lf, lU, lUk) num_threads(threads)
-        for(int i = 0; i < n_local; ++i){
+#pragma omp parallel for shared(lf, lU, lUk, lUn) num_threads(threads)
+        for(int i = 0; i < lrows; ++i){
             for(int j = 0; j < n; ++j){
                 if(j > 0 and j < n - 1){
                     lUk(i,j) = 0.25*(lU(i,j) + lU(i+2,j) + 
                                 lU(i+1,j-1) + lU(i+1,j+1) + (std::pow(h,2))*lf(i,j));
                 }
+                lUn(i + 1,j) = lUk(i,j);
             }
         }
 
-        boundary(lUk);
+        boundary(lf,lUn);
 
-        double lconv = ((lUk - lU.middleRows(1, n_local))*h).squaredNorm();
+        double lconv = ((lUn.middleRows(1, lrows) - lU.middleRows(1, lrows))*h).squaredNorm();
         MPI_Allreduce(&lconv, &conv, 1, MPI_DOUBLE, MPI_SUM,mpi_comm);
 
-#pragma omp parallel for shared(lU, lUk) num_threads(threads)
-        for(int i = 0; i < n_local; ++i){
-            for(int j = 0; j < n; ++j){
-                lU(i + 1,j) = lUk(i,j);
-            }
-        }
-
+        lU = lUn;
         ++iter;
-
     }while(iter < maxIter and std::sqrt(conv) > e);
 
     double time = toc();
 
     Matrix Uf = Matrix(n,n);
 
-    MPI_Gatherv(lUk.data(), lUk.size(), MPI_DOUBLE, Uf.data(), 
+    MPI_Gatherv(lU.middleRows(1, lrows).data(), lrows * n, MPI_DOUBLE, Uf.data(), 
                 counts.data(), disp.data(), MPI_DOUBLE, 0, mpi_comm);
     
 

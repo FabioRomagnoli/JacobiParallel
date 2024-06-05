@@ -10,6 +10,6 @@ e=1e-6
 prnt_param=false
 prnt_grid=false 
 prnt_info=false
-prnt_result=false
+prnt_result=true
 vtk_out=false
 csv_out=true

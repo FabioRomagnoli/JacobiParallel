@@ -26,10 +26,9 @@ class JacobianSolver{
 
         void solve();
 
-        void cast();
-        void partition();
         void scatter(Matrix &lf, Matrix &lU1);
-        void boundary(Matrix &lUk);
+        void castAdjacentRow(Matrix &lU);
+        void boundary(Matrix &lf,Matrix &lUk);
 
         Solution linearSolver();
         Solution parallelSolver();
@@ -51,16 +50,12 @@ class JacobianSolver{
         int n;      //grid nodes
         double h;   //grid spacing
 
-        // Vectors to store the number of elements to send/recieve to/from each
-        // processor and the offset index where to start reading/writing them from.
-        std::vector<int> counts;
-        std::vector<int> disp;
-
-        int n_local;
+        apsc::MatrixPartitioner<apsc::DistributedPartitioner> mPart;
+        int lrows;  //number of local rows
 
         Matrix Ue;  //exact solution
         Matrix f;   //function evaulated at grid
-        Matrix U1;   //initial matrix
+        Matrix U1;  //initial matrix
 
         Solution sol; 
         
