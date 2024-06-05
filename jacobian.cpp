@@ -167,22 +167,24 @@ void JacobianSolver::castAdjacentRow(Matrix &lU){
     
 }
 
-void JacobianSolver::boundary(Matrix &lf, Matrix &lUn){
+void JacobianSolver::boundary(Matrix &lf, Matrix &lUk){
     //reinstate boundary conditions for the edge blocks 
 
-#pragma omp parallel for shared(lUn, lf) num_threads(threads)
+    //bundary on left and right edge
+#pragma omp parallel for shared(lUk, lf) num_threads(threads)
     for(int i = 0; i < lrows; ++i){
-        lUn(i + 1, 0) = lf(i, 0);
-        lUn(i + 1, n - 1) = lf(i, n - 1);
+        lUk(i, 0) = lf(i, 0);
+        lUk(i, n - 1) = lf(i, n - 1);
     }
 
-#pragma omp parallel for shared(lUn, lf) num_threads(threads)
+    //boundary on top and bottom edge
+#pragma omp parallel for shared(lUk, lf) num_threads(threads)
     for(int j = 0; j < n; ++j){
         if(mpi_rank == 0)
-                lUn(1,j) = lf(0,j);
+                lUk(0,j) = lf(0,j);
 
         if(mpi_rank == mpi_size - 1)
-            lUn(lrows,j) = lf(lrows - 1 ,j);
+            lUk(lrows - 1 ,j) = lf(lrows - 1 ,j);
     }
 }
 
@@ -193,13 +195,14 @@ Solution JacobianSolver::linearSolver(){
     if(prnt_info)
         std::cout << "Problem solved linearly " << std::endl;
 
-	Matrix Uk = Matrix::Zero(n,n);
-    Matrix U = U1;
+	Matrix Uk = U1;
+    Matrix U;
     double conv;
 	unsigned int iter = 0;
 
 	tic();
 	do{		
+        U = Uk;
 #pragma omp parallel for shared(f, U, Uk) num_threads(threads)
 		for(int i = 1; i < n - 1; ++i){
 			for(int j = 1; j < n - 1; ++j){
@@ -209,7 +212,6 @@ Solution JacobianSolver::linearSolver(){
 		}
 		++iter;
         conv = ((Uk - U)*h).norm();
-        U = Uk;
 	} while (conv > e and iter < maxIter);
 	double time = toc();
 
@@ -246,28 +248,29 @@ Solution JacobianSolver::parallelSolver(){
     tic();
 
     do{
-        castAdjacentRow(lU);
-        
-        //temp matrix for next solution
-        Matrix lUn = Matrix(lrows + 2, n);
-        //compute next iteration of jacobi
-#pragma omp parallel for shared(lf, lU, lUk, lUn) num_threads(threads)
+#pragma omp parallel for shared(lU, lUk) num_threads(threads)
         for(int i = 0; i < lrows; ++i){
             for(int j = 0; j < n; ++j){
-                if(j > 0 and j < n - 1){
-                    lUk(i,j) = 0.25*(lU(i,j) + lU(i+2,j) + 
-                                lU(i+1,j-1) + lU(i+1,j+1) + (std::pow(h,2))*lf(i,j));
-                }
-                lUn(i + 1,j) = lUk(i,j);
+                lU(i + 1,j) = lUk(i,j);
             }
         }
 
-        boundary(lf,lUn);
+        castAdjacentRow(lU);
+ 
+        //compute next iteration of jacobi
+#pragma omp parallel for shared(lf, lU, lUk) num_threads(threads)
+        for(int i = 0; i < lrows; ++i){
+            for(int j = 1; j < n  - 1; ++j){
+                lUk(i,j) = 0.25*(lU(i,j) + lU(i+2,j) + 
+                            lU(i+1,j-1) + lU(i+1,j+1) + (std::pow(h,2))*lf(i,j));
+            }
+        }
 
-        double lconv = ((lUn.middleRows(1, lrows) - lU.middleRows(1, lrows))*h).squaredNorm();
+        boundary(lf,lUk);
+
+        double lconv = (lUk - lU.middleRows(1, lrows)*h).squaredNorm();
         MPI_Allreduce(&lconv, &conv, 1, MPI_DOUBLE, MPI_SUM,mpi_comm);
 
-        lU = lUn;
         ++iter;
     }while(iter < maxIter and std::sqrt(conv) > e);
 
@@ -275,7 +278,7 @@ Solution JacobianSolver::parallelSolver(){
 
     Matrix Uf = Matrix(n,n);
 
-    MPI_Gatherv(lU.middleRows(1, lrows).data(), lrows * n, MPI_DOUBLE, Uf.data(), 
+    MPI_Gatherv(lUk.data(), lUk.size(), MPI_DOUBLE, Uf.data(), 
                 counts.data(), disp.data(), MPI_DOUBLE, 0, mpi_comm);
     
 
