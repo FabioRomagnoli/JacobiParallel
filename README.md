@@ -6,6 +6,7 @@ The main initializes a few variables of type tuple defined in jacobiTraits to si
 - number of grid points
 - number of OpenMP threads
 - output file to save results
+
 and from the param file:
 - domain
 - boundary (controleld by a function of x and y and computed only at the boundary)

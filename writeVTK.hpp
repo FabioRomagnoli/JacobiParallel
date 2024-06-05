@@ -7,7 +7,7 @@
 #include <fstream>
 
 // generates a STRUCTURES VTK file with a scalar field
-void generateVTKFile(const std::string & filename, 
+void inline generateVTKFile(const std::string & filename, 
                      const Matrix& scalarField, 
                      int nx, int ny, double hx, double hy) {
 

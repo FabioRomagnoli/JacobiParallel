@@ -18,22 +18,22 @@ maxIter=100000
 e=1e-6
 
 #parameters of iterator
-prnt_param=false
+prnt_param=true
 
 #grid information
-prnt_grid=false 
+prnt_grid=true 
 
 #starting matrix and resulting matrix
-prnt_matrix=false
+prnt_matrix=true
 
 #info of computation (n processors, etc..)
-prnt_info=false
+prnt_info=true
 
 #result (error)
-prnt_result=false
+prnt_result=true
 
 #output to vtk
-vtk_out=false
+vtk_out=true
 
 #output to csv
 csv_out=false

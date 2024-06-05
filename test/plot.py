@@ -9,7 +9,7 @@ args = parser.parse_args()
 
 # Load data
 try:
-    data = pd.read_csv("./test/data/" + args.filename + '.csv')
+    data = pd.read_csv("data/" + args.filename + '.csv')
 except Exception as e:
     print(f"Error reading the file: {e}")
     exit(1)
@@ -28,15 +28,21 @@ colors = {
     4: 'blue'
 }
 
+linestyles = {
+    1: 'solid',
+    2: 'dashed',
+    4: 'dotted'
+}
+
+
 # Plotting
 fig, ax = plt.subplots()
 
 for n_cores in data['n_cores'].unique():
     for thread in data['threads'].unique():
         subset = data[(data['n_cores'] == n_cores) & (data['threads'] == thread)]
-        linestyle = '-' if thread == 1 else '--'
         ax.plot(subset['n_grid_points'], subset['time_elapsed'], label=f'{n_cores} cores, {thread} threads', 
-                linestyle=linestyle, color=colors.get(n_cores, 'black'))
+                linestyle=linestyles.get(thread, 'solid'), color=colors.get(n_cores, 'black'))
 
 ax.set_xscale('log', base=2)
 ax.set_xlabel('Number of Grid Points')
@@ -45,6 +51,6 @@ ax.set_title('Performance Analysis')
 ax.legend()
 ax.grid(True)
 
-plt.savefig('test/plots/performance_' + args.filename + '.png')
-print(f"Plot saved: /test/plots/performance_" + args.filename + ".png")
+plt.savefig('plots/performance_' + args.filename + '.png')
+print(f"Plot saved: plots/performance_" + args.filename + ".png")
 

@@ -6,7 +6,7 @@ include $(MAKEFILEH_DIR)/Makefile.inc
 
 
 CXX = mpic++
-CXXFLAGS += -fopenmp
+CXXFLAGS += -fopenmp -w
 INCLUDES += -I$(mkEigenInc) -I$(MUPARSER_INCLUDE)  #-I$(UTIL_INCLUDE)
 
 
