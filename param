@@ -3,13 +3,13 @@
 omega='0.0 1.0'
 
 #boundary
-boundary=y
+boundary=0
 
 #function to solve laplace problem for
 function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
 
 #solution of laplace problem
-solution=(sin(2*_pi*x)*sin(2*_pi*y))+y
+solution=(sin(2*_pi*x)*sin(2*_pi*y))
 
 #max iterations allowed
 maxIter=100000
