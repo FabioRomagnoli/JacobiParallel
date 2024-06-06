@@ -8,10 +8,10 @@ int main(int argc, char **argv){
     
     MPI_Comm mpi_comm = MPI_COMM_WORLD;
 
-    JacobianSolver j(mpi_comm);
+    JacobianSolver L(mpi_comm);
 
-    j.init(argc, argv);
-	j.solve();
+    L.init(argc, argv);
+	L.solve();
 
     MPI_Finalize();
 };

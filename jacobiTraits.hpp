@@ -22,7 +22,7 @@ using F = std::function<Scalar(Scalar, Scalar)>;
 
 struct Solution{
     Matrix Uf; 
-    double err;
+    double conv;
     double time;
 } ;
 

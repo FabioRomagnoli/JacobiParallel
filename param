@@ -1,39 +1,44 @@
 # File containing necessary parameters to describe jacobi iterator method for laplace
-#domain
-omega='0.0 1.0'
 
-#boundary
-boundary=0
+[domain]
+omega = "0.0 1.0"
 
-#function to solve laplace problem for
-function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
+[boundary]
+alpha = 1.0
+beta = 0.0
+g = 0
 
-#solution of laplace problem
-solution=(sin(2*_pi*x)*sin(2*_pi*y))
+[problem]
+# Function to solve Laplace problem for
+function = 8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
 
-#max iterations allowed
-maxIter=100000
+# Solution of Laplace problem
+solution = (sin(2*_pi*x)*sin(2*_pi*y))
 
-#tolerance
-e=1e-6
 
-#parameters of iterator
-prnt_param=false
+[parameters]
+# Max iterations allowed
+maxIter = 100000
 
-#grid information
-prnt_grid=false 
+# Tolerance
+tol = 1e-7
 
-#starting matrix and resulting matrix
-prnt_matrix=false
+[print]
+# Parameters of iterator
+param = true
 
-#info of computation (n processors, etc..)
-prnt_info=false
+# Starting matrix and resulting matrix
+matrix = true
 
-#result (error)
-prnt_result=true
+# Info of computation (n processors, etc..)
+info = true
 
-#output to vtk
-vtk_out=false
+# Result (error)
+result = true
 
-#output to csv
-csv_out=false
+[output]
+# Output to vtk
+vtk_out = true
+
+# Output to csv
+csv_out = false

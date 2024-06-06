@@ -2,8 +2,8 @@
 
 paramFile="param"
 outputFile="run"
-core=4
-grid=100
+core=2
+grid=10
 thread=1
 
 mpiexec -np "$core" ./main -f "$paramFile" -n "$grid" -t "$thread" -o "$outputFile"

@@ -25,12 +25,12 @@ class JacobianSolver{
         void init(int argc, char **argv);
 
         void solve();
+        Solution linearSolver();
 
         void scatter(Matrix &lf, Matrix &lU1);
         void castAdjacentRow(Matrix &lU);
-        void boundary(Matrix &lf,Matrix &lUk);
+        void boundary(Matrix &U);
 
-        Solution linearSolver();
         Solution parallelSolver();
 
         void output_csv(Solution sol);
@@ -45,7 +45,11 @@ class JacobianSolver{
 
         int threads;//threads
         int maxIter;
-        double  e;  //tollerance
+        double  tol;  //tollerance
+
+        double alpha;
+        double beta;
+        Matrix g;   //boundary condition function
 
         int n;      //grid nodes
         double h;   //grid spacing
@@ -53,12 +57,11 @@ class JacobianSolver{
         apsc::MatrixPartitioner<apsc::DistributedPartitioner> mPart;
         int lrows;  //number of local rows
 
-        Matrix Ue;  //exact solution
         Matrix f;   //function evaulated at grid
+        Matrix Ue;  //exact solution
         Matrix U1;  //initial matrix
 
         Solution sol; 
-        
 };
 
 #endif /* JACOBIAN_H */ 

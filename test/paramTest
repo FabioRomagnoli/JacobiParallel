@@ -5,11 +5,10 @@ function=8*(_pi^2)*sin(2*_pi*x)*sin(2*_pi*y)
 solution=sin(2*_pi*x)*sin(2*_pi*y)
 
 maxIter=100000
-e=1e-6
+tol=1e-6
 
-prnt_param=false
-prnt_grid=false 
-prnt_info=false
-prnt_result=true
+print_param=false
+print_info=false
+print_result=true
 vtk_out=false
 csv_out=true
